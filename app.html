@@ -228,6 +228,49 @@
       .print-zone{display:block!important}
       .official-sheet{margin:0;box-shadow:none;width:210mm;min-height:297mm}
     }
+  
+    .conflict-grid{
+      display:grid;
+      gap:12px;
+      grid-template-columns:1fr;
+      margin-top:10px;
+    }
+    @media(min-width:700px){
+      .conflict-grid{grid-template-columns:1fr 1fr;}
+    }
+    .conflict-col{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      padding:14px;
+    }
+    .conflict-col h4{
+      margin:0 0 10px;
+      font-size:1rem;
+      color:#fff;
+    }
+    .conflict-field{
+      margin-bottom:10px;
+      padding-bottom:8px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
+    .conflict-field:last-child{
+      margin-bottom:0;
+      padding-bottom:0;
+      border-bottom:none;
+    }
+    .conflict-field b{
+      display:block;
+      margin-bottom:4px;
+      color:#fff;
+    }
+    .conflict-diff{
+      outline:2px solid rgba(240,196,25,.75);
+      border-radius:10px;
+      padding:6px 8px;
+      background:rgba(240,196,25,.08);
+    }
+
   </style>
 </head>
 <body>
@@ -1163,8 +1206,8 @@ function renderDocument(){
 
 function openPrintChoiceModal(){ $('printChoiceModal').classList.add('show'); }
 function closePrintChoiceModal(){ $('printChoiceModal').classList.remove('show'); }
-function previewPdfOnly(){ closePrintChoiceModal(); printOfficialDocument(false); }
-function confirmPrintAndClose(){ closePrintChoiceModal(); printOfficialDocument(true); }
+function previewPdfOnly(){ closePrintChoiceModal(); closeConflictModal(); printOfficialDocument(false); }
+function confirmPrintAndClose(){ closePrintChoiceModal(); closeConflictModal(); printOfficialDocument(true); }
 
 function printOfficialDocument(markPrinted=false){
   renderDocument();
@@ -1191,7 +1234,50 @@ function printOfficialDocument(markPrinted=false){
       .right-col{width:70%;padding:10px!important}.rh-block{line-height:1.35;min-height:84px}
       .signature-bar{position:absolute;left:12mm;right:12mm;bottom:10mm;display:flex;justify-content:space-between;align-items:flex-end;gap:20mm}
       .signature-box{width:44%;text-align:center;font-size:10pt}.signature-line{border-top:1px solid #222;margin-bottom:4px;height:0}
-    </style>
+    
+    .conflict-grid{
+      display:grid;
+      gap:12px;
+      grid-template-columns:1fr;
+      margin-top:10px;
+    }
+    @media(min-width:700px){
+      .conflict-grid{grid-template-columns:1fr 1fr;}
+    }
+    .conflict-col{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      padding:14px;
+    }
+    .conflict-col h4{
+      margin:0 0 10px;
+      font-size:1rem;
+      color:#fff;
+    }
+    .conflict-field{
+      margin-bottom:10px;
+      padding-bottom:8px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
+    .conflict-field:last-child{
+      margin-bottom:0;
+      padding-bottom:0;
+      border-bottom:none;
+    }
+    .conflict-field b{
+      display:block;
+      margin-bottom:4px;
+      color:#fff;
+    }
+    .conflict-diff{
+      outline:2px solid rgba(240,196,25,.75);
+      border-radius:10px;
+      padding:6px 8px;
+      background:rgba(240,196,25,.08);
+    }
+
+  </style>
   `;
   let iframe = document.getElementById('printFrame');
   if(iframe) iframe.remove();
@@ -1251,75 +1337,212 @@ function exportBackup(){
   URL.revokeObjectURL(url);
 }
 
+
 function importBackup(file){
   const reader = new FileReader();
   reader.onload = () => {
     try{
       const parsed = JSON.parse(reader.result);
-      const incoming = parsed.registros || [];
-      let added=0, updated=0, ignored=0, conflicts=0;
+      const incoming = Array.isArray(parsed.registros) ? parsed.registros : [];
+      const incomingBigramas = Array.isArray(parsed.bigramas) ? parsed.bigramas : [];
+      const incomingFichas = parsed.fichas && typeof parsed.fichas === 'object' ? parsed.fichas : {};
 
-      incoming.forEach(ext=>{
-        const local = state.registros.find(r=>r.id===ext.id);
-
-        if(!local){
-          state.registros.push(ext);
-          added++;
-        }else{
-          if(ext.updatedAt > (local.updatedAt||0)){
-            // conflict detection
-            if(JSON.stringify(local) !== JSON.stringify(ext)){
-              const decision = confirm(
-                "Conflito detectado
-
-" +
-                "Meu status: "+local.status+"
-" +
-                "Backup status: "+ext.status+"
-
-" +
-                "OK = usar BACKUP
-Cancelar = manter LOCAL"
-              );
-              if(decision){
-                Object.assign(local, ext);
-                updated++;
-              }else{
-                ignored++;
-              }
-              conflicts++;
-            }else{
-              Object.assign(local, ext);
-              updated++;
-            }
-          }else{
-            ignored++;
-          }
+      // Merge bigramas by id, then by sigla if id absent locally
+      incomingBigramas.forEach(extB => {
+        const byId = state.bigramas.find(b => b.id === extB.id);
+        const bySigla = state.bigramas.find(b => b.sigla === extB.sigla);
+        if(!byId && !bySigla){
+          state.bigramas.push(extB);
         }
       });
 
+      // Merge fichas by bigrama id when local does not exist
+      Object.keys(incomingFichas).forEach(key => {
+        if(!state.fichas[key]){
+          state.fichas[key] = incomingFichas[key];
+        }
+      });
+
+      const mergeReport = {
+        added:0,
+        updated:0,
+        ignored:0,
+        conflicts:0,
+        totalIncoming: incoming.length
+      };
+
+      const conflictQueue = [];
+
+      incoming.forEach(ext => {
+        const local = state.registros.find(r => r.id === ext.id);
+
+        if(!local){
+          state.registros.push(ext);
+          mergeReport.added++;
+          return;
+        }
+
+        const localStamp = Number(local.updatedAt || local.createdAt || 0);
+        const extStamp = Number(ext.updatedAt || ext.createdAt || 0);
+
+        const fieldsToCompare = ['dataInicio','dataFim','horasFunc','equipamento','tipoRegistro','tipoRegistroLabel','avaria','solucao','observacao','status','bigramaId'];
+        const hasContentDiff = fieldsToCompare.some(k => String(local[k] ?? '') !== String(ext[k] ?? ''));
+
+        if(!hasContentDiff){
+          mergeReport.ignored++;
+          return;
+        }
+
+        // Conflict = both sides changed and differ
+        if(localStamp > 0 && extStamp > 0){
+          conflictQueue.push({ localId: local.id, backupRecord: ext });
+          mergeReport.conflicts++;
+          return;
+        }
+
+        if(extStamp > localStamp){
+          Object.assign(local, ext);
+          mergeReport.updated++;
+        }else{
+          mergeReport.ignored++;
+        }
+      });
+
+      state.__pendingImportReport = mergeReport;
+      state.__conflictQueue = conflictQueue;
       saveState();
       bootstrapUI();
 
-      alert(
-        "Importação concluída
-
-"+
-        "Novos: "+added+"
-"+
-        "Atualizados: "+updated+"
-"+
-        "Ignorados: "+ignored+"
-"+
-        "Conflitos: "+conflicts
-      );
-
+      if(conflictQueue.length){
+        openNextConflict();
+      }else{
+        finalizeImportReport();
+      }
     }catch(e){
       alert('Arquivo inválido');
     }
   };
   reader.readAsText(file);
 }
+
+
+
+function formatConflictValue(v){
+  return nl2br(v === '' || v === null || typeof v === 'undefined' ? '—' : String(v));
+}
+
+function buildConflictField(label, localValue, backupValue){
+  const different = String(localValue ?? '') !== String(backupValue ?? '');
+  return `
+    <div class="conflict-field ${different ? 'conflict-diff' : ''}">
+      <b>${escapeHtml(label)}</b>
+      <div>${formatConflictValue(localValue)}</div>
+    </div>
+  `;
+}
+
+function buildConflictFieldBackup(label, localValue, backupValue){
+  const different = String(localValue ?? '') !== String(backupValue ?? '');
+  return `
+    <div class="conflict-field ${different ? 'conflict-diff' : ''}">
+      <b>${escapeHtml(label)}</b>
+      <div>${formatConflictValue(backupValue)}</div>
+    </div>
+  `;
+}
+
+function openNextConflict(){
+  const queue = state.__conflictQueue || [];
+  if(!queue.length){
+    finalizeImportReport();
+    return;
+  }
+  const item = queue[0];
+  const local = state.registros.find(r => r.id === item.localId);
+  const backup = item.backupRecord;
+  if(!local){
+    state.__conflictQueue.shift();
+    saveState();
+    openNextConflict();
+    return;
+  }
+
+  const content = `
+    <div class="conflict-grid">
+      <div class="conflict-col">
+        <h4>Meu registro</h4>
+        ${buildConflictField('Data início', local.dataInicio, backup.dataInicio)}
+        ${buildConflictField('Data fim', local.dataFim, backup.dataFim)}
+        ${buildConflictField('Horas', local.horasFunc, backup.horasFunc)}
+        ${buildConflictField('Equipamento', local.equipamento, backup.equipamento)}
+        ${buildConflictField('Tipo', local.tipoRegistroLabel || local.tipoRegistro, backup.tipoRegistroLabel || backup.tipoRegistro)}
+        ${buildConflictField('Avaria', local.avaria, backup.avaria)}
+        ${buildConflictField('Solução', local.solucao, backup.solucao)}
+        ${buildConflictField('Observação', local.observacao, backup.observacao)}
+        ${buildConflictField('Status', local.status, backup.status)}
+        ${buildConflictField('Atualizado em', local.updatedAt || local.createdAt, backup.updatedAt || backup.createdAt)}
+      </div>
+      <div class="conflict-col">
+        <h4>Registro do backup</h4>
+        ${buildConflictFieldBackup('Data início', local.dataInicio, backup.dataInicio)}
+        ${buildConflictFieldBackup('Data fim', local.dataFim, backup.dataFim)}
+        ${buildConflictFieldBackup('Horas', local.horasFunc, backup.horasFunc)}
+        ${buildConflictFieldBackup('Equipamento', local.equipamento, backup.equipamento)}
+        ${buildConflictFieldBackup('Tipo', local.tipoRegistroLabel || local.tipoRegistro, backup.tipoRegistroLabel || backup.tipoRegistro)}
+        ${buildConflictFieldBackup('Avaria', local.avaria, backup.avaria)}
+        ${buildConflictFieldBackup('Solução', local.solucao, backup.solucao)}
+        ${buildConflictFieldBackup('Observação', local.observacao, backup.observacao)}
+        ${buildConflictFieldBackup('Status', local.status, backup.status)}
+        ${buildConflictFieldBackup('Atualizado em', local.updatedAt || local.createdAt, backup.updatedAt || backup.createdAt)}
+      </div>
+    </div>
+  `;
+  $('conflictContent').innerHTML = content;
+  $('conflictModal').classList.add('show');
+}
+
+function closeConflictModal(){
+  $('conflictModal').classList.remove('show');
+}
+
+function resolveConflictChoice(choice){
+  const queue = state.__conflictQueue || [];
+  if(!queue.length){
+    closeConflictModal();
+    finalizeImportReport();
+    return;
+  }
+  const item = queue.shift();
+  const local = state.registros.find(r => r.id === item.localId);
+  const backup = item.backupRecord;
+  if(choice === 'backup' && local){
+    Object.assign(local, backup);
+    state.__pendingImportReport.updated++;
+  }else{
+    state.__pendingImportReport.ignored++;
+  }
+  saveState();
+  closeConflictModal();
+  bootstrapUI();
+  openNextConflict();
+}
+
+function finalizeImportReport(){
+  const report = state.__pendingImportReport || {added:0,updated:0,ignored:0,conflicts:0,totalIncoming:0};
+  alert(
+    'Importação concluída\\n\\n' +
+    'Entradas no backup: ' + report.totalIncoming + '\\n' +
+    'Novos: ' + report.added + '\\n' +
+    'Atualizados: ' + report.updated + '\\n' +
+    'Ignorados: ' + report.ignored + '\\n' +
+    'Conflitos revisados: ' + report.conflicts
+  );
+  delete state.__pendingImportReport;
+  delete state.__conflictQueue;
+  saveState();
+  bootstrapUI();
+}
+
 
 function bootstrapUI(){
   renderHomeFolders();
@@ -1350,7 +1573,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(e.key === 'Escape'){
       closeMainMenu();
       closeManageBigramas();
-      closePrintChoiceModal();
+      closePrintChoiceModal(); closeConflictModal();
     }
   });
   resetRecordForm();
