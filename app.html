@@ -271,6 +271,29 @@
       background:rgba(240,196,25,.08);
     }
 
+  
+    .report-list{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+    .report-item{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      color:#f3f7fb;
+      font-weight:700;
+    }
+    .report-item span:last-child{
+      color:#f0c419;
+      font-size:1.05rem;
+    }
+
   </style>
 </head>
 <body>
@@ -1277,6 +1300,29 @@ function printOfficialDocument(markPrinted=false){
       background:rgba(240,196,25,.08);
     }
 
+  
+    .report-list{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+    .report-item{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      color:#f3f7fb;
+      font-weight:700;
+    }
+    .report-item span:last-child{
+      color:#f0c419;
+      font-size:1.05rem;
+    }
+
   </style>
   `;
   let iframe = document.getElementById('printFrame');
@@ -1501,6 +1547,7 @@ function resolveConflictChoice(choice){
   }
 }
 
+
 function closeImportReportModal(){
   const el = $('importReportModal');
   if(el) el.classList.remove('show');
@@ -1510,13 +1557,12 @@ function showImportReportModal(report){
   const content = $('importReportContent');
   if(content){
     content.innerHTML = `
-      <div class="label-block"><b>Entradas no backup</b>${report.totalIncoming}</div>
-      <div class="label-block" style="margin-top:10px;"><b>Resultado</b></div>
-      <div style="display:grid;gap:8px;margin-top:8px;">
-        <div class="chip">Novos: ${report.added}</div>
-        <div class="chip">Atualizados: ${report.updated}</div>
-        <div class="chip">Ignorados: ${report.ignored}</div>
-        <div class="chip">Conflitos revisados: ${report.conflicts}</div>
+      <div class="report-list">
+        <div class="report-item"><span>Entradas no backup</span><span>${report.totalIncoming}</span></div>
+        <div class="report-item"><span>Novos</span><span>${report.added}</span></div>
+        <div class="report-item"><span>Atualizados</span><span>${report.updated}</span></div>
+        <div class="report-item"><span>Ignorados</span><span>${report.ignored}</span></div>
+        <div class="report-item"><span>Conflitos revisados</span><span>${report.conflicts}</span></div>
       </div>
     `;
   }
@@ -1531,6 +1577,7 @@ function finalizeImportReport(){
   bootstrapUI();
   showImportReportModal(report);
 }
+
 
 
 function bootstrapUI(){
