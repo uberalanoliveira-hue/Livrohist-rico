@@ -775,7 +775,7 @@ function selectBigrama(id){
 
 function showScreen(screen){
   if(screen !== 'home' && !state.selectedBigramaId){
-    alert('Selecione primeiro um bigrama.');
+    showAppMessage('Bigrama', 'Selecione primeiro um bigrama.');
     return;
   }
   currentScreen = screen;
@@ -975,8 +975,9 @@ function editRecord(id){
   showScreen('novo');
   window.scrollTo({top:0, behavior:'smooth'});
 }
-function deleteRecord(id){
-  if(!confirm('Excluir este registro?')) return;
+async function deleteRecord(id){
+  const ok = await showAppConfirm('Excluir registro', 'Deseja realmente excluir este registro?');
+  if(!ok) return;
   state.registros = state.registros.filter(x => x.id !== id);
   if(editingRecordId === id) resetRecordForm();
   saveState();
@@ -1077,13 +1078,14 @@ function resetBigramaForm(){
   $('bigramaForm').reset();
   $('saveBigramaBtn').textContent = 'Salvar Bigrama';
 }
-function deleteBigrama(id){
+async function deleteBigrama(id){
   const inUse = state.registros.some(r => r.bigramaId === id);
   if(inUse){
-    alert('Não é possível excluir este bigrama porque existem registros vinculados a ele.');
+    showAppMessage('Excluir bigrama', 'Não é possível excluir este bigrama porque existem registros vinculados a ele.');
     return;
   }
-  if(!confirm('Excluir este bigrama?')) return;
+  const ok = await showAppConfirm('Excluir bigrama', 'Deseja realmente excluir este bigrama?');
+  if(!ok) return;
   state.bigramas = state.bigramas.filter(x => x.id !== id);
   delete state.fichas[id];
   if(state.selectedBigramaId === id){
@@ -1229,15 +1231,15 @@ function renderDocument(){
 
 function openPrintChoiceModal(){ $('printChoiceModal').classList.add('show'); }
 function closePrintChoiceModal(){ $('printChoiceModal').classList.remove('show'); }
-function previewPdfOnly(){ closePrintChoiceModal(); closeConflictModal(); closeImportReportModal(); printOfficialDocument(false); }
-function confirmPrintAndClose(){ closePrintChoiceModal(); closeConflictModal(); closeImportReportModal(); printOfficialDocument(true); }
+function previewPdfOnly(){ closePrintChoiceModal(); closeConflictModal(); closeImportReportModal(); closeAppMessageModal(); closeAppConfirmModal(); printOfficialDocument(false); }
+function confirmPrintAndClose(){ closePrintChoiceModal(); closeConflictModal(); closeImportReportModal(); closeAppMessageModal(); closeAppConfirmModal(); printOfficialDocument(true); }
 
 function printOfficialDocument(markPrinted=false){
   renderDocument();
   const printableRecords = getPrintableOpenRecords();
   const content = $('printHost').innerHTML;
   if(!content || !content.trim()){
-    alert('Não há conteúdo para imprimir.');
+    showAppMessage('Documento oficial', 'Não há conteúdo para imprimir.');
     return;
   }
   const printableIds = printableRecords.map(r => r.id);
@@ -1363,7 +1365,7 @@ function printOfficialDocument(markPrinted=false){
       iframe.contentWindow.print();
       if(markPrinted) setTimeout(applyClosedStatus, 300);
     }catch(e){
-      alert('O navegador não permitiu abrir a impressão.');
+      showAppMessage('Documento oficial', 'O navegador não permitiu abrir a impressão.');
     }
   };
   iframe.onload = () => setTimeout(doPrint, 250);
@@ -1449,7 +1451,7 @@ function importBackup(file){
         finalizeImportReport();
       }
     }catch(e){
-      alert('Arquivo de backup inválido.');
+      showAppMessage('Importação de backup', 'Arquivo de backup inválido.');
     }
   };
   reader.readAsText(file);
@@ -1580,6 +1582,45 @@ function finalizeImportReport(){
 
 
 
+
+function showAppMessage(title, body){
+  const t = $('appMessageTitle');
+  const b = $('appMessageBody');
+  if(t) t.textContent = title || 'Mensagem';
+  if(b) b.textContent = body || '';
+  $('appMessageModal').classList.add('show');
+}
+function closeAppMessageModal(){
+  const el = $('appMessageModal');
+  if(el) el.classList.remove('show');
+}
+
+
+let __appConfirmResolver = null;
+
+function showAppConfirm(title, body){
+  return new Promise(resolve => {
+    __appConfirmResolver = resolve;
+    const t = $('appConfirmTitle');
+    const b = $('appConfirmBody');
+    if(t) t.textContent = title || 'Confirmar ação';
+    if(b) b.textContent = body || '';
+    $('appConfirmModal').classList.add('show');
+  });
+}
+function closeAppConfirmModal(){
+  const el = $('appConfirmModal');
+  if(el) el.classList.remove('show');
+}
+function resolveAppConfirm(value){
+  closeAppConfirmModal();
+  if(__appConfirmResolver){
+    const fn = __appConfirmResolver;
+    __appConfirmResolver = null;
+    fn(Boolean(value));
+  }
+}
+
 function bootstrapUI(){
   renderHomeFolders();
   if(state.selectedBigramaId) updateSelectedContextUI();
@@ -1609,7 +1650,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(e.key === 'Escape'){
       closeMainMenu();
       closeManageBigramas();
-      closePrintChoiceModal(); closeConflictModal(); closeImportReportModal();
+      closePrintChoiceModal(); closeConflictModal(); closeImportReportModal(); closeAppMessageModal(); closeAppConfirmModal();
     }
   });
   resetRecordForm();
