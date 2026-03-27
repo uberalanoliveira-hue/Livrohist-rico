@@ -471,11 +471,7 @@
         <h2>Documento Oficial</h2>
         <p style="margin-bottom:14px;">Somente registros em aberto do bigrama selecionado entram no PDF.</p>
         <div class="toolbar">
-          <button class="btn btn-primary" type="button" onclick="openPrintChoiceModal()">Imprimir / Exportar PDF</button>
-          <button class="btn btn-secondary" type="button" onclick="exportBackup()">Exportar Backup</button>
-          <label class="btn btn-ghost" for="importBackup">Importar Backup</label>
-          <input id="importBackup" class="hidden" type="file" accept=".json" />
-        </div>
+          <button class="btn btn-primary" type="button" onclick="openPrintChoiceModal()">Imprimir / Exportar PDF</button>        </div>
         <div class="print-note" style="margin-top:12px;">Ao escolher “Marcar registros como fechado”, os itens que entrarem no PDF serão considerados já impressos.</div>
       </div>
       <div id="printHost" class="print-zone"></div>
@@ -488,6 +484,9 @@
       <p>Ações gerais do aplicativo.</p>
       <div class="toolbar">
         <button class="btn btn-primary" type="button" onclick="openManageBigramas()">Gerenciar bigramas</button>
+        <button class="btn btn-secondary" type="button" onclick="exportBackup()">Exportar backup</button>
+        <label class="btn btn-secondary" for="importBackup">Importar backup</label>
+        <input id="importBackup" class="hidden" type="file" accept=".json" />
         <button class="btn btn-secondary" type="button" onclick="goHome()">Trocar bigrama</button>
         <button class="btn btn-ghost" type="button" onclick="closeMainMenu()">Fechar</button>
       </div>
