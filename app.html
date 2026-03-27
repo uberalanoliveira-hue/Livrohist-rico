@@ -1250,27 +1250,77 @@ function exportBackup(){
   a.click();
   URL.revokeObjectURL(url);
 }
+
 function importBackup(file){
   const reader = new FileReader();
   reader.onload = () => {
     try{
       const parsed = JSON.parse(reader.result);
-      state = {
-        bigramas:Array.isArray(parsed.bigramas) && parsed.bigramas.length ? parsed.bigramas : [...defaultBigramas],
-        registros:Array.isArray(parsed.registros) ? parsed.registros : [],
-        fichas:parsed.fichas && typeof parsed.fichas === 'object' ? parsed.fichas : {},
-        filtros:parsed.filtros ? { busca:'', status:'TODOS', dataInicio:'', dataFim:'', ...parsed.filtros } : { busca:'', status:'TODOS', dataInicio:'', dataFim:'' },
-        selectedBigramaId:parsed.selectedBigramaId || null
-      };
+      const incoming = parsed.registros || [];
+      let added=0, updated=0, ignored=0, conflicts=0;
+
+      incoming.forEach(ext=>{
+        const local = state.registros.find(r=>r.id===ext.id);
+
+        if(!local){
+          state.registros.push(ext);
+          added++;
+        }else{
+          if(ext.updatedAt > (local.updatedAt||0)){
+            // conflict detection
+            if(JSON.stringify(local) !== JSON.stringify(ext)){
+              const decision = confirm(
+                "Conflito detectado
+
+" +
+                "Meu status: "+local.status+"
+" +
+                "Backup status: "+ext.status+"
+
+" +
+                "OK = usar BACKUP
+Cancelar = manter LOCAL"
+              );
+              if(decision){
+                Object.assign(local, ext);
+                updated++;
+              }else{
+                ignored++;
+              }
+              conflicts++;
+            }else{
+              Object.assign(local, ext);
+              updated++;
+            }
+          }else{
+            ignored++;
+          }
+        }
+      });
+
       saveState();
       bootstrapUI();
-      alert('Backup importado com sucesso.');
+
+      alert(
+        "Importação concluída
+
+"+
+        "Novos: "+added+"
+"+
+        "Atualizados: "+updated+"
+"+
+        "Ignorados: "+ignored+"
+"+
+        "Conflitos: "+conflicts
+      );
+
     }catch(e){
-      alert('Arquivo de backup inválido.');
+      alert('Arquivo inválido');
     }
   };
   reader.readAsText(file);
 }
+
 function bootstrapUI(){
   renderHomeFolders();
   if(state.selectedBigramaId) updateSelectedContextUI();
