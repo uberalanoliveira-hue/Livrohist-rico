@@ -1,19 +1,17 @@
-Pacote corrigido
+Versão v4
 
-Diagnóstico do erro anterior:
-- o app real foi gerado a partir de uma versão HTML duplicada
-- isso fez aparecer código JS no rodapé da tela
-
-Nesta versão:
-- index.html = tela de instalação obrigatória
-- app.html = aplicativo real corrigido
-- app.html foi saneado para conter apenas um documento HTML válido
+Mudanças:
+- tela inicial agora mostra pastas, uma para cada bigrama
+- gerenciar bigramas foi movido para o menu de três traços no canto superior direito
+- ao entrar no bigrama, aparecem Novo Registro, Histórico, Dados da Ficha e Documento Oficial
+- removida a seleção de bigrama dentro do formulário e do filtro, pois o contexto agora é definido na entrada
+- mantida a lógica de PDF apenas com registros em aberto
+- mantida a tela de instalação obrigatória do PWA
 
 Publicação:
 1. apague todos os arquivos antigos do repositório
-2. envie todos os arquivos deste ZIP
+2. envie estes arquivos novos
 3. aguarde o GitHub Pages atualizar
-4. remova do celular qualquer instalação anterior do app
-5. abra o link novamente
-6. instale de novo
-7. se necessário, use aba anônima para evitar cache antigo
+4. remova qualquer instalação antiga do app no celular
+5. abra o link e instale novamente
+6. se precisar, teste primeiro em aba anônima por causa de cache
