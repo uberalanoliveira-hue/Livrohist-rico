@@ -494,34 +494,29 @@ function renderHomeFolders(){
 }
 
 function updateTopbar(){
-  const backBtn = $('topBackBtn');
-  const title = $('topTitle');
-  const subtitle = $('topSubtitle');
   const b = getSelectedBigrama();
+  const topBackBtn = $('topBackBtn');
+  const topTitle = $('topTitle');
+  const topSubtitle = $('topSubtitle');
 
-  title.style.fontSize = '';
-  subtitle.style.fontSize = '';
+  topBackBtn.classList.toggle('ghost', UI.currentScreen==='home');
 
-  if(currentScreen === 'home'){
-    backBtn.classList.add('ghost');
-    title.textContent = 'LIVRO HISTÓRICO';
-    subtitle.textContent = 'Sistema de registro histórico de equipamentos de máquinas';
+  if(UI.currentScreen==='home'){
+    topTitle.textContent = 'LIVRO HISTÓRICO';
+    topSubtitle.textContent = 'Sistema de registro histórico de equipamentos de máquinas';
+    topTitle.style.fontSize = '';
+    topSubtitle.style.display = '';
+  }else if(UI.currentScreen==='dashboard'){
+    topTitle.textContent = b ? String(b.sigla || '').trim() : 'Sistema';
+    topSubtitle.textContent = '';
+    topTitle.style.fontSize = '2rem';
+    topSubtitle.style.display = 'none';
   }else{
-    backBtn.classList.remove('ghost');
-    if(currentScreen === 'dashboard'){
-      title.textContent = b ? (b.sigla || '') : 'Sistema';
-      subtitle.textContent = '';
-      title.style.fontSize = '2rem';
-    }else{
-      const map = {
-        novo:'Novo Registro',
-        historico:'Histórico',
-        ficha:'Dados da Ficha',
-        documento:'Documento Oficial'
-      };
-      title.textContent = map[currentScreen] || 'Livro Histórico';
-      subtitle.textContent = b ? getBigramaLabel(b.id) : '';
-    }
+    const map = {novo:'Novo Registro',historico:'Histórico',ficha:'Dados da Ficha',documento:'Documento Oficial'};
+    topTitle.textContent = map[UI.currentScreen] || 'Livro Histórico';
+    topSubtitle.textContent = b ? getBigramaLabel(b.id) : '';
+    topTitle.style.fontSize = '';
+    topSubtitle.style.display = '';
   }
 }
 function updateContextUI(){
