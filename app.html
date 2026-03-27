@@ -1206,8 +1206,8 @@ function renderDocument(){
 
 function openPrintChoiceModal(){ $('printChoiceModal').classList.add('show'); }
 function closePrintChoiceModal(){ $('printChoiceModal').classList.remove('show'); }
-function previewPdfOnly(){ closePrintChoiceModal(); closeConflictModal(); printOfficialDocument(false); }
-function confirmPrintAndClose(){ closePrintChoiceModal(); closeConflictModal(); printOfficialDocument(true); }
+function previewPdfOnly(){ closePrintChoiceModal(); closeConflictModal(); closeImportReportModal(); printOfficialDocument(false); }
+function confirmPrintAndClose(){ closePrintChoiceModal(); closeConflictModal(); closeImportReportModal(); printOfficialDocument(true); }
 
 function printOfficialDocument(markPrinted=false){
   renderDocument();
@@ -1479,7 +1479,7 @@ function closeConflictModal(){
 function resolveConflictChoice(choice){
   const queue = state.__conflictQueue || [];
   if(!queue.length){
-    closeConflictModal();
+    closeConflictModal(); closeImportReportModal();
     finalizeImportReport();
     return;
   }
@@ -1492,7 +1492,7 @@ function resolveConflictChoice(choice){
     state.__pendingImportReport.ignored++;
   }
   saveState();
-  closeConflictModal();
+  closeConflictModal(); closeImportReportModal();
   bootstrapUI();
   if(queue.length){
     openNextConflict();
@@ -1500,21 +1500,38 @@ function resolveConflictChoice(choice){
     finalizeImportReport();
   }
 }
+
+function closeImportReportModal(){
+  const el = $('importReportModal');
+  if(el) el.classList.remove('show');
+}
+
+function showImportReportModal(report){
+  const content = $('importReportContent');
+  if(content){
+    content.innerHTML = `
+      <div class="label-block"><b>Entradas no backup</b>${report.totalIncoming}</div>
+      <div class="label-block" style="margin-top:10px;"><b>Resultado</b></div>
+      <div style="display:grid;gap:8px;margin-top:8px;">
+        <div class="chip">Novos: ${report.added}</div>
+        <div class="chip">Atualizados: ${report.updated}</div>
+        <div class="chip">Ignorados: ${report.ignored}</div>
+        <div class="chip">Conflitos revisados: ${report.conflicts}</div>
+      </div>
+    `;
+  }
+  $('importReportModal').classList.add('show');
+}
+
 function finalizeImportReport(){
   const report = state.__pendingImportReport || {added:0,updated:0,ignored:0,conflicts:0,totalIncoming:0};
   delete state.__pendingImportReport;
   delete state.__conflictQueue;
   saveState();
   bootstrapUI();
-  alert(
-    'Importação concluída\n\n' +
-    'Entradas no backup: ' + report.totalIncoming + '\n' +
-    'Novos: ' + report.added + '\n' +
-    'Atualizados: ' + report.updated + '\n' +
-    'Ignorados: ' + report.ignored + '\n' +
-    'Conflitos revisados: ' + report.conflicts
-  );
+  showImportReportModal(report);
 }
+
 
 function bootstrapUI(){
   renderHomeFolders();
@@ -1545,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(e.key === 'Escape'){
       closeMainMenu();
       closeManageBigramas();
-      closePrintChoiceModal(); closeConflictModal();
+      closePrintChoiceModal(); closeConflictModal(); closeImportReportModal();
     }
   });
   resetRecordForm();
