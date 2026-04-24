@@ -969,6 +969,38 @@
   color:#000 !important;
 }
 
+
+
+/* v10: preenchimento máximo com 4 cm livres para assinatura */
+.official-sheet .hist-table,
+#pdfViewerContent .official-sheet .hist-table{
+  margin-bottom:0 !important;
+}
+#pdfViewerContent{
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+#pdfViewerContent .official-sheet{
+  height:297mm !important;
+  min-height:297mm !important;
+  overflow:hidden !important;
+}
+.rh-block,
+.rh-block p,
+.rh-block b,
+.left-col,
+.right-col,
+.hist-table td,
+#pdfViewerContent .rh-block,
+#pdfViewerContent .rh-block p,
+#pdfViewerContent .rh-block b,
+#pdfViewerContent .left-col,
+#pdfViewerContent .right-col,
+#pdfViewerContent .hist-table td{
+  color:#000 !important;
+}
+
 </style>
 
 <style id="pdf-viewer-overlay-fix">
@@ -2997,25 +3029,104 @@ function estimateOfficialRowHeightMm(record){
   return Math.max(22, leftHeight, rightHeight);
 }
 function paginateOfficialRecords(records, ficha){
-  // v09: remove o modelo A-1. O documento começa sempre no Anexo B, página B-1.
-  const pages = [];
-  const pageLimit = 192; // área útil preservando assinatura fixa no rodapé
+  // v10: paginação por medição real do DOM.
+  // Regra: preencher a página ao máximo, mantendo 4 cm livres acima da assinatura.
+  const SIGNATURE_CLEARANCE_MM = 40;
   if(!records.length){
     return [{pageNumber: 1, isFirst: false, rows: []}];
   }
-  let current = {pageNumber: 1, isFirst: false, rows: []};
-  let used = 0;
-  records.forEach((record)=>{
-    const h = estimateOfficialRowHeightMm(record);
-    if(current.rows.length && (used + h > pageLimit)){
-      pages.push(current);
-      current = {pageNumber: pages.length + 1, isFirst: false, rows: []};
-      used = 0;
+
+  function fallbackPaginate(){
+    const pages = [];
+    const pageLimit = 218; // fallback mais cheio que a v09, usado só se o DOM não puder medir
+    let current = {pageNumber: 1, isFirst: false, rows: []};
+    let used = 0;
+    records.forEach((record)=>{
+      const h = estimateOfficialRowHeightMm(record);
+      if(current.rows.length && (used + h > pageLimit)){
+        pages.push(current);
+        current = {pageNumber: pages.length + 1, isFirst: false, rows: []};
+        used = 0;
+      }
+      current.rows.push(record);
+      used += h;
+    });
+    pages.push(current);
+    return pages;
+  }
+
+  if(typeof document === 'undefined' || !document.body){
+    return fallbackPaginate();
+  }
+
+  const measureHost = document.createElement('div');
+  measureHost.style.position = 'fixed';
+  measureHost.style.left = '-10000px';
+  measureHost.style.top = '0';
+  measureHost.style.width = '210mm';
+  measureHost.style.visibility = 'hidden';
+  measureHost.style.pointerEvents = 'none';
+  measureHost.style.zIndex = '-1';
+  document.body.appendChild(measureHost);
+
+  const pages = [];
+  let currentRows = [];
+  let pageNumber = 1;
+
+  const makeMeasureSheet = (num)=>{
+    const pageCode = `- B - ${num} -`;
+    const headerTop = `<div class="sheet-top-right">ENGENALMARINST Nº 85-13A<br>Anexo B</div>`;
+    const titleTable = `<table class="doc-title-table"><tr><td class="doc-title" style="width:68%;">REGISTRO HISTÓRICO DE EQUIPAMENTOS DE<br>MÁQUINAS</td><td style="width:14%;text-align:center;"><span class="box-label">FICHA Nº</span><br>${escapeHtml(ficha.fichaNumero||'')}</td><td style="width:18%;text-align:center;"><span class="box-label">FOLHA Nº</span><br>${num}</td></tr></table>`;
+    measureHost.innerHTML = `<div class="official-sheet"><div class="official-page-body">${headerTop}<div class="page-code">${pageCode}</div>${titleTable}<table class="hist-table" style="margin-top:8px;"><thead><tr><th style="width:30%;">DATA E Nº DE HORAS DE FUNCIONAMENTO</th><th style="width:70%;">REGISTRO HISTÓRICO</th></tr></thead><tbody></tbody></table></div><div class="signature-bar"><div class="signature-box"><div class="signature-line"></div>Encarregado do Sistema MO-1</div><div class="signature-box"><div class="signature-line"></div>Encarregado da Divisão de Máquinas</div></div></div>`;
+    return measureHost.querySelector('.official-sheet');
+  };
+
+  let sheet = makeMeasureSheet(pageNumber);
+  let tbody = sheet.querySelector('tbody');
+  let table = sheet.querySelector('.hist-table');
+  let signature = sheet.querySelector('.signature-bar');
+  const pxPerMm = (sheet.getBoundingClientRect().height || sheet.offsetHeight || 1123) / 297;
+  const clearancePx = SIGNATURE_CLEARANCE_MM * pxPerMm;
+
+  const canFitCurrentSheet = ()=>{
+    const tableBottom = table.getBoundingClientRect().bottom;
+    const signatureTop = signature.getBoundingClientRect().top;
+    return tableBottom <= (signatureTop - clearancePx);
+  };
+
+  try{
+    records.forEach((record)=>{
+      const temp = document.createElement('tbody');
+      temp.innerHTML = buildRowsHtml([record]);
+      const row = temp.firstElementChild;
+      tbody.appendChild(row);
+
+      if(!canFitCurrentSheet() && currentRows.length){
+        tbody.removeChild(row);
+        pages.push({pageNumber, isFirst:false, rows:currentRows});
+        pageNumber += 1;
+        currentRows = [];
+        sheet = makeMeasureSheet(pageNumber);
+        tbody = sheet.querySelector('tbody');
+        table = sheet.querySelector('.hist-table');
+        signature = sheet.querySelector('.signature-bar');
+        tbody.appendChild(row);
+      }
+
+      // Se um lançamento sozinho for maior que a área útil, ele entra sozinho mesmo assim.
+      // Isso evita loop infinito e preserva a regra de não quebrar o lançamento no meio.
+      currentRows.push(record);
+    });
+
+    if(currentRows.length){
+      pages.push({pageNumber, isFirst:false, rows:currentRows});
     }
-    current.rows.push(record);
-    used += h;
-  });
-  pages.push(current);
+  }catch(err){
+    document.body.removeChild(measureHost);
+    return fallbackPaginate();
+  }
+
+  document.body.removeChild(measureHost);
   return pages;
 }
 function makePage(pageNumber, rowsHtml, isFirst){
