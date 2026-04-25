@@ -1061,6 +1061,35 @@
   margin:0 0 3px 0 !important;
 }
 
+
+/* v13: visualização e DOCX com a mesma paginação; reserva real de 4 cm para assinatura */
+.official-page-body{
+  height:221mm !important;
+  max-height:221mm !important;
+  overflow:hidden !important;
+}
+.official-sheet .hist-table{
+  margin-bottom:0 !important;
+}
+.official-sheet .signature-bar{
+  position:absolute !important;
+  left:12mm !important;
+  right:12mm !important;
+  bottom:10mm !important;
+}
+.hist-table td,.hist-table th{
+  color:#000 !important;
+  padding:4px 6px !important;
+  line-height:1.20 !important;
+}
+.rh-block,.rh-block p,.rh-block b{
+  color:#000 !important;
+  line-height:1.20 !important;
+}
+.rh-block p{
+  margin:0 0 2px 0 !important;
+}
+
 </style>
 
 <style id="pdf-viewer-overlay-fix">
@@ -3099,7 +3128,7 @@ function paginateOfficialRecords(records, ficha){
     return [{pageNumber: 1, isFirst: false, rows: []}];
   }
 
-  const PAGE_LIMIT_MM = 248; // mais agressivo que v11; preserva aproximadamente 4 cm finais/assinatura
+  const PAGE_LIMIT_MM = 168; // v13: limite realista para manter 4 cm livres antes da assinatura
   const pages = [];
   let current = {pageNumber: 1, isFirst: false, rows: []};
   let used = 0;
@@ -4262,9 +4291,9 @@ function docxCell(content, width, opts={}){
   const vAlign = '<w:vAlign w:val="top"/>';
   return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${vAlign}${shade}</w:tcPr>${content}</w:tc>`;
 }
-function docxRow(cells){ return `<w:tr>${cells.join('')}</w:tr>`; }
+function docxRow(cells){ return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${cells.join('')}</w:tr>`; }
 function docxTable(rows){
-  return `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:left w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:bottom w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:right w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:insideH w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:insideV w:val="single" w:sz="8" w:space="0" w:color="000000"/></w:tblBorders></w:tblPr>${rows.join('')}</w:tbl>`;
+  return `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:left w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:bottom w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:right w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:insideH w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:insideV w:val="single" w:sz="8" w:space="0" w:color="000000"/></w:tblBorders></w:tblPr>${rows.join('')}</w:tbl>`;
 }
 function buildOfficialDocxXml(){
   const {pages, ficha} = getOfficialPdfPages();
@@ -4292,19 +4321,21 @@ function buildOfficialDocxXml(){
         `Observação: ${r.observacao || ''}`
       ].join('\n');
       histRows.push(docxRow([
-        docxCell(docxP(dateRangeLabel(r) || '', {jc:'center', size:21}), 2800),
-        docxCell(docxP(right, {size:21}), 6500)
+        docxCell(docxP(dateRangeLabel(r) || '', {jc:'center', size:20}), 2800),
+        docxCell(docxP(right, {size:20}), 6500)
       ]));
     });
     body.push(docxTable(histRows));
-    body.push(docxP('\n\n\n_______________________________                         _______________________________', {jc:'center', size:20}));
-    body.push(docxP('Encarregado do Sistema MO-1                         Encarregado da Divisão de Máquinas', {jc:'center', size:19}));
     if(idx < pages.length - 1){
       body.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
     }
   });
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body.join('')}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1021" w:right="680" w:bottom="1021" w:left="680" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${body.join('')}<w:sectPr><w:footerReference w:type="default" r:id="rIdFooter1"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1021" w:right="680" w:bottom="2268" w:left="680" w:header="708" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>`;
 }
+function buildOfficialFooterXml(){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr><w:tr><w:tc><w:tcPr><w:tcW w:w="4650" w:type="dxa"/><w:tcBorders><w:top w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/></w:tcBorders></w:tcPr>${docxP('Encarregado do Sistema MO-1',{jc:'center',size:18})}</w:tc><w:tc><w:tcPr><w:tcW w:w="4650" w:type="dxa"/><w:tcBorders><w:top w:val="single" w:sz="8" w:space="0" w:color="000000"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/></w:tcBorders></w:tcPr>${docxP('Encarregado da Divisão de Máquinas',{jc:'center',size:18})}</w:tc></w:tr></w:tbl></w:ftr>`;
+}
+
 function crc32(str){
   const table = crc32.table || (crc32.table = (()=>{let c,t=[];for(let n=0;n<256;n++){c=n;for(let k=0;k<8;k++) c=((c&1)?(0xEDB88320^(c>>>1)):(c>>>1));t[n]=c>>>0;}return t;})());
   let crc = 0 ^ -1;
@@ -4346,8 +4377,9 @@ function buildOfficialDocxBlob(){
   const files = [
     {name:'[Content_Types].xml', content:'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'},
     {name:'_rels/.rels', content:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
-    {name:'word/_rels/document.xml.rels', content:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>'},
-    {name:'word/document.xml', content:documentXml}
+    {name:'word/_rels/document.xml.rels', content:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdFooter1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>'},
+    {name:'word/document.xml', content:documentXml},
+    {name:'word/footer1.xml', content:buildOfficialFooterXml()}
   ];
   return makeZip(files);
 }
@@ -4641,7 +4673,7 @@ function buildPsDocxBlob(ps){
   return makeZip([
     {name:'[Content_Types].xml', content:'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'},
     {name:'_rels/.rels', content:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
-    {name:'word/_rels/document.xml.rels', content:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>'},
+    {name:'word/_rels/document.xml.rels', content:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdFooter1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>'},
     {name:'word/document.xml', content:xml}
   ]);
 }
